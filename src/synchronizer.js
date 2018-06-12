@@ -35,7 +35,7 @@ class Synchronizer {
         for(let i in modified){
             let offset = modified[i].indexOf(anchor);
             if(offset > -1){
-                modifiedDate = modified[i].substr(anchor.length, 19);
+                modifiedDate = modified[i].substr(offset + anchor.length, 19);
             }
         }
         return new Date(modifiedDate);
@@ -46,6 +46,7 @@ class Synchronizer {
         await vulnerability.cleanTable();
         let jsons = this.getFilesDataAsArray(fileNames);
         await this.insertDataToDatabase(jsons);
+        await this.updateDataFromNVD();
         return 0;
     }
 
@@ -83,16 +84,21 @@ class Synchronizer {
         return returnPromise;
     }
 
-    async insertDataToDatabase(data){
+    async insertDataToDatabase(data, chunk = 10){
         console.log("Inserting");
         let promises = [];
         let errors = [];
-        for(let i in data){
+        let params = [];
+        for(let i = 0; i < data.length; i++){
             let record = data[i];
             let idString = record["cve"]["CVE_data_meta"]["ID"];
             let param = utils.convertStringToParams(idString);
-            let promise = vulnerability.create(param[0], param[1], record);
-            promises.push(promise);
+            params.push(param[0], param[1], record);
+            if(i % chunk === 0){
+                let promise = vulnerability.bulkCreate(params);
+                params = [];
+                promises.push(promise);
+            }
         }
         let returnPromise = Promise.all(promises);
         returnPromise.then(()=> {

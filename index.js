@@ -42,10 +42,10 @@ Promise.all([dbPromise, server]).then((results) => {
         console.log("Database connection crashed.");
     }
     if(results[0] && results[1]) {
-        server.listen(3000);
-        console.log("NVD service started successfully.");
         Synchronizer.baseInsertYearData().then(()=>{
             console.log("Base data inserted");
+            server.listen(3000);
+            console.log("NVD service started successfully.");
             cronTask.start();
         });
     } else {
@@ -53,29 +53,10 @@ Promise.all([dbPromise, server]).then((results) => {
     }
 });
 
-process.on('SIGINT', function() {
+process.on('SIGINT', async function() {
     if(cronTask)
         cronTask.destroy();
-    let dbStop = new Promise((resolve,reject) => {
-        if(db)
-            db.end(function(err) {
-                if (!err) {
-                    console.log("DB stopped successfully\n\n");
-                    resolve(true);
-                }
-                else {
-                    console.log(err);
-                    reject(false);
-                }
-            });
-        else
-            resolve(true);
-    });
-    Promise.all([dbStop])
-        .then(function(){
-            process.exit(0);
-        })
-        .catch(function(){
-            process.exit(1);
-        });
+    if(db)
+        db.end();
+    process.exit(0);
 });
